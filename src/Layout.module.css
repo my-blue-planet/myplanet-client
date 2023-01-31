@@ -1,0 +1,17 @@
+
+/* .wrapper :global(.svelte_eddywrap) {height: 100%;}
+.wrapper :global(.eddicolumnwrap) {height: 100%;} */
+
+/* .wrapper :global(.eddy) {
+	height: 100%;
+	display: grid;
+	grid-template-rows: auto auto 1fr;
+}
+
+.wrapper :global(.output) {
+	min-height:0
+}
+
+.wrapper :global(.eddy .output) {
+	max-height: inherit;
+} */

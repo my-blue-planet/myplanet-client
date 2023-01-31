@@ -1,0 +1,260 @@
+from time import sleep, clock
+from threading import *
+from mercatorWorker import *
+
+"""
+create a decorator to add functions as methods
+with this decorators all functions are usable global
+and as method
+
+def add_method(cls):
+	def decorator(func):
+		def wrapper(self, *args, **kwargs):
+			return func(*args, **kwargs)
+		setattr(cls, func.__name__, wrapper)
+		# Note we are not binding func, but wrapper which accepts self but does exactly the same as func
+		return func # returning func means func can still be used normally
+	return decorator
+"""
+
+id = 0
+scenes = []
+globalChannelKeys = []
+
+def _asyncWaitFor(signal):
+  answer = waitFor(signal)
+  while not answer:
+    answer = waitFor(signal)
+    sleep(0.002)
+  return answer['payload']
+
+
+
+class Messenger:
+	def __init__(self, forceId = False):
+		global id
+		if forceId:
+			self.id = forceId 
+		else:
+			self.id = id
+			id = id + 1
+		print(self.id)
+
+	def getId(self):
+		return self.id
+
+	def waitForSignal(self, signal):
+		return _asyncWaitFor(signal)
+
+	def runCommand(self, command, value):
+		signal = 'image'+command+str(round(clock()*1e6))
+		show({'command': command, 'value': value, 'readysignal': signal, 'id': self.id})
+		return self.waitForSignal(signal)
+
+	def runCommandImmediate(self, command, value):
+		signal = False
+		show({'command': command, 'value': value, 'readysignal': signal, 'id': self.id})
+
+class Collection(Messenger):
+
+	@classmethod
+	def load(cls, url):
+		collection = cls()
+		payload = collection.runCommand('openCollection', url)
+		print(payload)
+		return collection
+
+	def _afterOpening(self, payload):
+		global globalChannelKeys
+		self.W = payload['W']
+		self.H = payload['H']
+		self.scenes = []
+		for scene in payload['scenes']:
+			print(scene)
+			self.scenes.append(Scene.fromCollectionFrame(scene))
+		#self.channels = payload['channels']
+		#self.channelkeys = [str(self.getId()) + "_" + c for c in self.channels]
+		#globalChannelKeys += self.channelkeys
+
+class Scene(Messenger):
+	def __init__(self, forceId = False):
+		super().__init__(forceId)
+		global scenes
+		scenes.append(self)
+
+	@classmethod
+	def load(cls, url):
+		scene = cls()
+		payload = scene.runCommand('open', url)
+		scene._afterOpening(payload)
+		return scene
+
+	@classmethod
+	def create(cls, W, H, color):
+		scene = cls()
+		payload = scene.runCommand('open', [W, H, color])
+		scene._afterOpening(payload)
+		return scene
+
+	@classmethod
+	def new(cls, W, H, color=None):
+		return cls(W, H, color)
+
+	@classmethod
+	def fromCollectionFrame(cls, scene, forceId):
+		
+		print(scene)
+
+	def _open(self, src):
+		payload = self.runCommand('open', src)
+		self._afterOpening(payload)
+
+	def _create(self, W, H, color):
+		if color == None:
+			color = [200,200,240]
+		payload = self.runCommand('create', [W, H, color])
+		self._afterOpening(payload)
+
+	def _afterOpening(self, payload):
+		global globalChannelKeys
+		self.W = payload['W']
+		self.H = payload['H']
+		self.channels = payload['channels']
+		self.channelkeys = [str(self.getId()) + "_" + c for c in self.channels]
+		globalChannelKeys += self.channelkeys
+
+	def addOverlay(self):
+		overlay = Overlay()
+		payload = overlay.runCommand('addOverlay', [self.getId(), [255,255,255,128]])
+		overlay._afterOpening(payload)
+		return overlay
+
+	def _writePos(self, channel, pos, val):
+		global writeShared
+		global globalChannelKeys
+		channelkey = str(self.getId()) + "_" + channel
+		writeShared(channelkey, pos, val)
+		return writeShared("dirtymarkers", globalChannelKeys.index(channelkey), 1)
+
+		# old: return writeShared(str(self.getId()) + "_" + channel, pos, val)
+
+	def _readPos(self, channel, pos):
+		global readShared
+		return readShared(str(self.getId()) + "_" + channel, pos)
+
+	def getWidth(self):
+		return self.W
+
+	def getHeight(self):
+		return self.H
+
+	def getDimensions(self):
+		return [self.W, self.H]
+
+	def getPixel(self, x, y):
+		return Pixel(self, x, y)
+
+	def getPixels(self):
+		for y in range(self.H):
+			for x in range(self.W):
+				yield Pixel(self, x, y)
+
+	def setChannelAt(self, channel, x, y, val):
+		pos = x + y * self.getWidth()
+		return self._writePos(channel, pos, val)
+
+	def setColorAt(self, x, y, color):
+		pos = x + y * self.getWidth()
+		for channel in range(len(color)):
+			writeShared(self.channelkeys[channel], pos, color[channel])
+		return
+
+	def getChannelAt(self, channel, x, y):
+		pos = x + y * self.getWidth()
+		return self._readPos(channel, pos)
+
+	def getColorAt(self, x, y):
+		pos = x + y * self.getWidth()
+		return [readShared(channel, pos) for channel in self.channelkeys]
+
+class Overlay(Scene):
+	def setChannelAt(self, channel, x, y, val):
+		pos = x + y * self.getWidth()
+		if self._readPos("a", pos) == 0:
+			self._writePos("a", pos, 255)
+		return self._writePos(channel, pos, val)
+
+	def setColorAt(self, x, y, color):
+		pos = x + y * self.getWidth()
+		if self._readPos("a", pos) == 0:
+			self._writePos("a", pos, 255)
+		for channel in range(len(color)):
+			writeShared(self.channelkeys[channel], pos, color[channel])
+		return
+
+class Pixel:
+	def __init__(self, scene, x, y):
+		self.scene = scene
+		self.__x = x
+		self.__y = y
+		self.__p = x + y * scene.getWidth()
+	
+	@classmethod
+	def create_channel_methods(cls):
+		def createGetter(channel):
+			return lambda self: self.getChannel(channel)
+		def createSetter(channel):
+			return lambda self, val: self.setChannel(channel, val)
+		for channel in ["r", "g", "b", "a", "elevation", "pop", "nox", "lights"]:
+			setattr(cls, channel, property(createGetter(channel), createSetter(channel)))
+	
+	def __getx(self):
+		return self.__x
+	x = property(__getx)
+	
+	def __gety(self):
+		return self.__y
+	y = property(__gety)
+	
+	def setChannel(self, channel, value):
+		return self.scene.setChannelAt(channel, self.x, self.y, value)
+
+	def getChannel(self, channel):
+		return self.scene.getChannelAt(channel, self.x, self.y)
+
+	#alias
+	def set(self, channel, value):
+		return self.scene.setChannelAt(channel, self.x, self.y, value)
+
+	#alias
+	def get(self, channel):
+		return self.scene._readPos(channel, self.__p)
+
+	def __str__(self):
+		log = "Pixel(%d,%d): {" % (self.x, self.y)
+		for channel in self.scene.channels:
+			log += channel + ":" + str(self.getChannel(channel)) + "  "
+		log += "}"
+		return log
+	
+	def getNeighbors(self):
+		neighbors = []
+		x = self.x
+		y = self.y
+		H = self.scene.getHeight()
+		W = self.scene.getWidth()
+		if y > 0:
+			neighbors.append(self.scene.getPixel(x, y-1))
+		if y < H-1:
+			neighbors.append(self.scene.getPixel(x, y+1))
+		if x > 0:
+			neighbors.append(self.scene.getPixel(x-1, y))
+		if x < W-1:
+			neighbors.append(self.scene.getPixel(x+1, y))
+		return neighbors
+
+	#alias
+	def getNeighbours(self):
+		return self.getNeighbors()
+
+Pixel.create_channel_methods()

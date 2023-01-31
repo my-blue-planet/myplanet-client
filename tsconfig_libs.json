@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "node"
+  },
+  "files": ["./src/myplanet_js/SimpleImage.ts", "./src/myplanet_js/myplanet.ts"]
+}

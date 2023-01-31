@@ -1,0 +1,35 @@
+{
+  "name": "myplanet-client",
+  "version": "4.0.0",
+  "description": "client of myplanet project",
+  "type": "module",
+  "scripts": {
+    "buildLibraries": "cd src/skulpthelpers && node buildLibraries && cd../..",
+    "buildJSLibraries": "npx tsc --p tsconfig_libs.json && cd src/myplanet_js && node buildJSLibraries && cd../..",
+    "prepare": "npm run buildLibraries && npm run buildJSLibraries",
+    "start": "npm run prepare && vite --host",
+    "dev": "npm start",
+    "build": "npm run prepare && vite build",
+    "serve": "vite preview",
+    "postinstall": "vite build"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^18.6.3",
+    "@types/offscreencanvas": "^2019.7.0",
+    "babel-plugin-solid-styled": "^0.6.3",
+    "myplanet-tasks": "^1.1.4",
+    "typescript": "^4.7.4",
+    "vite": "^3.0.0",
+    "vite-plugin-solid": "^2.3.0"
+  },
+  "dependencies": {
+    "3e8-countryhelpers": "^2.0.2",
+    "3e8-editor": "^3.0.2",
+    "3e8-run-python-skulpt": "^2.6.0",
+    "3e8-taskcontroller": "^0.8.0",
+    "fflate": "^0.7.4",
+    "solid-js": "^1.4.7",
+    "solid-styled": "^0.6.3"
+  }
+}
