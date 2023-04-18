@@ -95,7 +95,8 @@ const ChannelLoadApp: Component = () => {
       long: +getVal("long"),
       lat: +getVal("lat"),
       zoomLevel: +getVal("zoomLevel"),
-      size: target() === "multichannel" ? +getVal("size") as 256 | 512 | 768 | 1024 | 1280 : 256
+      size: target() === "multichannel" ? +getVal("size") as 256 | 512 | 768 | 1024 | 1280 : 256,
+      cut: zerocut
     }
     loadState(nextState)
   }
