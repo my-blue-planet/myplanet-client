@@ -2,6 +2,7 @@ import {Colorscale, Tscale} from "./Colorscales";
 import {unzlibSync, zlibSync} from "fflate";
 import type SceneManager from "./SceneManager";
 import {Mercator} from "./Mercator";
+import { log } from "console";
 
 export interface IDisplayObjSized {
 	get W(): number

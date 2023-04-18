@@ -147,7 +147,7 @@ export default class SceneManager {
 		const data = await this.fetchSceneOrCollection(url, warnIfNotExists)
 		if(!data || "scenes" in data) return null
 		const scene = Scene.fromSerialized(data, this.nextSceneId++)
-		scene.label = url.match(/(\w+)\.json/)?.[1] || ""
+		scene.label = url.match(/([\w_\-]+)\.json/)?.[1] || ""
 		return scene
 	}
 	setupScene(scene: Scene) {

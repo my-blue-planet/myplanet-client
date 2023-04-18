@@ -16,6 +16,7 @@ import {
 } from './DisplayObjects';
 import {Part} from "solid-js/store";
 import {countryList} from "3e8-countryhelpers";
+import { log } from 'console';
 
 interface ResultControlProps {
   sceneState: ISceneState,
@@ -92,7 +93,7 @@ const MyplanetTaskResultControl: Component<ResultControlProps> = (props: ResultC
   const [hiddenOverlays, setHiddenOverlays] = createSignal<string[]>([])
 
   const updateCanvasHolders = () => {
-    canvasHolders().forEach((c, i)=>{
+    canvasHolders().forEach((c, i)=>{     
       if(CanvasHolder.isCollection(c)) {
         const size = c.getReadySize()
         if(size < c.getFrames().length) {
@@ -106,8 +107,13 @@ const MyplanetTaskResultControl: Component<ResultControlProps> = (props: ResultC
           const sceneId = c.obj.sceneId
           setActiveScenes((prev)=>prev.filter(id=>id!==sceneId).concat([sceneId]))
         }
-        setActiveNames((prev)=>({...prev, [c.getId()]: c.getNames()[0]}))
       }
+      setActiveNames((prev)=>{
+        if(!c.getNames().includes(prev[c.getId()])) {
+          return {...prev, [c.getId()]: c.getNames()[0]}
+        }
+        return prev
+      })
     })
   }
   createEffect(on(canvasHolders, updateCanvasHolders))
@@ -191,12 +197,12 @@ const MyplanetTaskResultControl: Component<ResultControlProps> = (props: ResultC
   }
 
   const markActiveCanvas = () => {
+    
     canvasHolders().forEach(ch=>{
       ch.cps.forEach(cp=>{
         const sceneIsActive = activeScenes().includes(cp.scene.sceneId)
         const nameIsActive = activeNames()[ch.getId()] === cp.name
         const isHiddenOverlay = hiddenOverlays().includes(ch.getId())
-        //console.log({cp, sceneIsActive, nameIsActive, isHiddenOverlay});
         cp.setActive(sceneIsActive && nameIsActive && !isHiddenOverlay)
       })
     })
